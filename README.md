@@ -23,25 +23,25 @@
 <tr>
 <td align="center">
 <a href="https://github.com/NoMTF/FuckImageDecection/raw/main/dist/ImagePrivacyTool-Windows.zip">
-<img src="https://img.shields.io/badge/Windows-立即下载-.exe-0078D4?style=for-the-badge&logo=windows&logoColor=white" height="48"/><br/>
+<img src="https://img.shields.io/badge/Windows-立即下载%20.exe-0078D4?style=for-the-badge&logo=windows&logoColor=white" height="48"/><br/>
 <sub>解压 → 双击 <code>.exe</code></sub>
 </a>
 </td>
 <td align="center">
 <a href="https://github.com/NoMTF/FuckImageDecection/raw/main/dist/ImagePrivacyTool-Linux.tar.gz">
-<img src="https://img.shields.io/badge/Linux-立即下载-binary-FCC624?style=for-the-badge&logo=linux&logoColor=black" height="48"/><br/>
+<img src="https://img.shields.io/badge/Linux-立即下载%20binary-FCC624?style=for-the-badge&logo=linux&logoColor=black" height="48"/><br/>
 <sub>解压 → <code>chmod +x</code> → 运行</sub>
 </a>
 </td>
 <td align="center">
 <a href="https://github.com/NoMTF/FuckImageDecection/raw/main/dist/ImagePrivacyTool-macOS.zip">
-<img src="https://img.shields.io/badge/macOS-立即下载-.app-000000?style=for-the-badge&logo=apple&logoColor=white" height="48"/><br/>
+<img src="https://img.shields.io/badge/macOS-立即下载%20.app-000000?style=for-the-badge&logo=apple&logoColor=white" height="48"/><br/>
 <sub>解压 → 拖入应用程序</sub>
 </a>
 </td>
 <td align="center">
 <a href="https://github.com/NoMTF/FuckImageDecection/raw/main/dist/ImagePrivacyTool-Android.apk">
-<img src="https://img.shields.io/badge/Android-立即下载-.apk-3DDC84?style=for-the-badge&logo=android&logoColor=white" height="48"/><br/>
+<img src="https://img.shields.io/badge/Android-立即下载%20.apk-3DDC84?style=for-the-badge&logo=android&logoColor=white" height="48"/><br/>
 <sub>允许未知来源 → 安装</sub>
 </a>
 </td>
