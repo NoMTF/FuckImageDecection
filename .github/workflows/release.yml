@@ -1,0 +1,232 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  # Windows desktop build (.exe)
+  # ─────────────────────────────────────────────────────────────────
+  build-windows:
+    name: Windows (PyInstaller)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onefile --windowed --name "ImagePrivacyTool" `
+            --add-data "core.py;." `
+            image_privacy_tool.py
+
+      - name: Package artifact
+        run: |
+          mkdir dist\release
+          copy dist\ImagePrivacyTool.exe dist\release\
+          powershell Compress-Archive -Path dist\release\* -DestinationPath ImagePrivacyTool-Windows.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: ImagePrivacyTool-Windows.zip
+
+  # ─────────────────────────────────────────────────────────────────
+  # Linux desktop build (ELF binary)
+  # ─────────────────────────────────────────────────────────────────
+  build-linux:
+    name: Linux (PyInstaller)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system libs
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y python3-tk python3-dev libffi-dev
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onefile --name "ImagePrivacyTool" \
+            --add-data "core.py:." \
+            image_privacy_tool.py
+
+      - name: Package artifact
+        run: |
+          tar czf ImagePrivacyTool-Linux.tar.gz -C dist ImagePrivacyTool
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: ImagePrivacyTool-Linux.tar.gz
+
+  # ─────────────────────────────────────────────────────────────────
+  # macOS desktop build (.app)
+  # ─────────────────────────────────────────────────────────────────
+  build-macos:
+    name: macOS (PyInstaller)
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onefile --windowed --name "ImagePrivacyTool" \
+            --add-data "core.py:." \
+            image_privacy_tool.py
+
+      - name: Package artifact
+        run: |
+          zip -r ImagePrivacyTool-macOS.zip dist/ImagePrivacyTool.app
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: ImagePrivacyTool-macOS.zip
+
+  # ─────────────────────────────────────────────────────────────────
+  # Android APK (Buildozer)
+  # ─────────────────────────────────────────────────────────────────
+  build-android:
+    name: Android (Buildozer)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            git zip unzip openjdk-17-jdk python3-pip \
+            autoconf libtool pkg-config zlib1g-dev \
+            libncurses5-dev libncursesw5-dev libtinfo5 \
+            cmake libffi-dev libssl-dev
+
+      - name: Install Buildozer & Cython
+        run: |
+          pip install --upgrade buildozer cython
+
+      - name: Copy core.py into mobile dir
+        run: cp core.py mobile/
+
+      - name: Build APK
+        working-directory: mobile
+        run: |
+          buildozer android debug 2>&1 | tail -50
+
+      - name: Find APK
+        id: find_apk
+        working-directory: mobile
+        run: |
+          APK=$(find bin -name "*.apk" | head -1)
+          echo "apk_path=$APK" >> "$GITHUB_OUTPUT"
+
+      - name: Rename APK
+        working-directory: mobile
+        run: |
+          cp "${{ steps.find_apk.outputs.apk_path }}" \
+             "../ImagePrivacyTool-Android.apk"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build
+          path: ImagePrivacyTool-Android.apk
+
+  # ─────────────────────────────────────────────────────────────────
+  # Create GitHub Release
+  # ─────────────────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: [build-windows, build-linux, build-macos, build-android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure
+        run: find artifacts -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Image Privacy Tool ${{ github.ref_name }}"
+          body: |
+            ## 🔒 Image Privacy Tool ${{ github.ref_name }}
+
+            ### 📦 下载说明
+
+            | 平台 | 文件 | 说明 |
+            |------|------|------|
+            | 🪟 Windows | `ImagePrivacyTool-Windows.zip` | 解压后双击 `.exe` 运行 |
+            | 🐧 Linux | `ImagePrivacyTool-Linux.tar.gz` | 解压后 `chmod +x` 运行 |
+            | 🍎 macOS | `ImagePrivacyTool-macOS.zip` | 解压后拖入应用程序文件夹 |
+            | 🤖 Android | `ImagePrivacyTool-Android.apk` | 开启「允许未知来源」后安装 |
+
+            ### ✨ 本版本特性
+            - 现代化深色/浅色主题 GUI (CustomTkinter)
+            - 批量处理支持
+            - 24+ GPS 预设地点
+            - 21+ 设备预设
+            - 自定义 GPS 坐标
+            - JPEG/PNG/WEBP 输出格式
+            - 完整 EXIF 清除选项
+            - 移动端 Android APK
+
+            > ⚠️ 请仅在合法合规的隐私保护场景下使用。
+          files: |
+            artifacts/windows-build/ImagePrivacyTool-Windows.zip
+            artifacts/linux-build/ImagePrivacyTool-Linux.tar.gz
+            artifacts/macos-build/ImagePrivacyTool-macOS.zip
+            artifacts/android-build/ImagePrivacyTool-Android.apk
+          draft: false
+          prerelease: false
