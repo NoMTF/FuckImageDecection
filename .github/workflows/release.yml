@@ -88,6 +88,7 @@ jobs:
         shell: pwsh
         run: |
           python -m PyInstaller --clean --noconfirm --onefile --windowed --name ImagePrivacyTool --collect-data customtkinter --hidden-import PIL._tkinter_finder image_privacy_tool.py
+          dist\ImagePrivacyTool.exe --smoke-test
           New-Item -ItemType Directory -Force release | Out-Null
           Compress-Archive -Path dist\ImagePrivacyTool.exe -DestinationPath release\ImagePrivacyTool-Windows.zip -Force
 

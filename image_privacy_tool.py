@@ -62,6 +62,12 @@ def _make_thumb(path: Path) -> Optional[ImageTk.PhotoImage]:
         return None
 
 
+def _pack_separator(parent) -> None:
+    ctk.CTkFrame(parent, height=1, fg_color=("gray75", "gray25")).pack(
+        fill="x", padx=8, pady=6
+    )
+
+
 # ──────────────────────────────────────────────
 # Settings panel (left sidebar)
 # ──────────────────────────────────────────────
@@ -71,7 +77,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         self._build()
 
     def _build(self):
-        pad = {"padx": 10, "pady": (4, 0), "sticky": "w"}
+        pad = {"padx": 10, "pady": (4, 0), "anchor": "w"}
 
         # ── GPS ──────────────────────────────
         ctk.CTkLabel(self, text="📍  GPS 预设位置", font=ctk.CTkFont(weight="bold")).pack(**pad)
@@ -93,7 +99,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         ctk.CTkEntry(coord_frm, textvariable=self.lon_var,
                      placeholder_text="经度  e.g. 116.40", width=118).pack(side="right")
 
-        ctk.CTkSeparator(self, orientation="horizontal").pack(fill="x", padx=8, pady=6)
+        _pack_separator(self)
 
         # ── Device ───────────────────────────
         ctk.CTkLabel(self, text="📷  拍摄设备预设",
@@ -105,7 +111,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         )
         self.device_cb.pack(padx=10, pady=(2, 6))
 
-        ctk.CTkSeparator(self, orientation="horizontal").pack(fill="x", padx=8, pady=6)
+        _pack_separator(self)
 
         # ── Note ─────────────────────────────
         ctk.CTkLabel(self, text="💬  隐藏备注 (EXIF UserComment)",
@@ -114,7 +120,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         ctk.CTkEntry(self, textvariable=self.note_var,
                      placeholder_text="写入 EXIF 的隐藏文字…", width=250).pack(padx=10, pady=(2, 6))
 
-        ctk.CTkSeparator(self, orientation="horizontal").pack(fill="x", padx=8, pady=6)
+        _pack_separator(self)
 
         # ── Options ──────────────────────────
         ctk.CTkLabel(self, text="🔧  处理选项",
@@ -144,7 +150,7 @@ class SettingsPanel(ctk.CTkScrollableFrame):
             variable=self.strip_var
         ).pack(**pad)
 
-        ctk.CTkSeparator(self, orientation="horizontal").pack(fill="x", padx=8, pady=6)
+        _pack_separator(self)
 
         # ── Output format ────────────────────
         ctk.CTkLabel(self, text="💾  输出格式",
@@ -701,6 +707,10 @@ class App(ctk.CTk):
 # ──────────────────────────────────────────────
 def main():
     app = App()
+    if "--smoke-test" in sys.argv:
+        app.update_idletasks()
+        app.destroy()
+        return
     app.mainloop()
 
 
