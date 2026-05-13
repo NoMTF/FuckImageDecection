@@ -501,9 +501,10 @@ def _sha256_file(path: Path) -> str:
 
 
 def _phash(img: Image.Image) -> str:
-    if imagehash is None:
-        return "N/A (未安装 ImageHash)"
-    return str(imagehash.phash(img.convert("RGB")))
+    if imagehash is not None:
+        return str(imagehash.phash(img.convert("RGB")))
+    small = img.convert("L").resize((32, 32), Image.Resampling.LANCZOS)
+    return "visual:" + hashlib.sha256(small.tobytes()).hexdigest()[:16]
 
 
 def _apply_perceptual_tweak(base: Image.Image, attempt: int) -> Image.Image:
@@ -614,7 +615,7 @@ def process_image(
     exif_bytes = _build_exif_bytes(opts, capture_time)
 
     _prog(0.70, "保存输出文件…")
-    max_attempts = 6 if opts.tweak_phash and imagehash is not None else 1
+    max_attempts = 6 if opts.tweak_phash else 1
     dst_phash = src_phash
     for attempt in range(max_attempts):
         working = _apply_perceptual_tweak(rgb, attempt) if opts.tweak_phash else rgb

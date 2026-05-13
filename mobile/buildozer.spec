@@ -10,7 +10,7 @@ source.include_exts = py,png,jpg,kv,atlas,json
 main = main
 
 version = 2.1
-requirements = python3,kivy==2.3.0,kivymd==1.2.0,pillow,piexif,imagehash,plyer,numpy
+requirements = python3,kivy==2.3.0,kivymd==1.2.0,pillow,piexif,plyer
 
 orientation = portrait
 fullscreen = 0
