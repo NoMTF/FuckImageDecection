@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "image-privacy-tool-workers",
+  "compatibility_date": "2026-05-13",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./workers-site"
+  }
+}

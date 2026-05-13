@@ -1,0 +1,21 @@
+{
+  "name": "image-privacy-tool-workers",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "preview": "wrangler dev",
+    "build": "wrangler deploy --dry-run",
+    "check": "node --check workers-site/app.js && node --check workers-site/vendor/heic-to.js && wrangler deploy --dry-run",
+    "ci": "npm run check",
+    "deploy": "wrangler deploy",
+    "deploy:workers": "wrangler deploy",
+    "preview:workers": "wrangler dev",
+    "deploy:workers:dry": "wrangler deploy --dry-run"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "wrangler": "^4.90.1"
+  }
+}

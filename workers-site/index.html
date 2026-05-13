@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>图片元数据修改器 | 静态本地反跟踪工具</title>
+    <link rel="stylesheet" href="./site.css">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23f8c7dd'/%3E%3Ccircle cx='23' cy='25' r='12' fill='%238fd3ff'/%3E%3Cpath d='M18 42h28l-8-16-7 10-5-6z' fill='%23ffffff'/%3E%3C/svg%3E">
+    <script defer src="./vendor/piexif.js"></script>
+    <script defer src="./vendor/jszip.min.js"></script>
+    <script defer src="./vendor/UTIF.js"></script>
+    <script defer src="./vendor/exif-reader.js"></script>
+    <script defer src="./vendor/heic-to.js"></script>
+    <script defer src="./vendor/heic2any.min.js"></script>
+    <script defer src="./app.js"></script>
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">STATIC · LOCAL · NO COLLECTION</p>
+          <p class="hero-subtitle">静态部署、本地运行的图片元数据修改与反跟踪工具</p>
+          <h1>图片元数据修改器</h1>
+          <p class="hero-text">
+            这是一个 100% 静态、无后端、无数据库、不会收集图片数据的本地工具。
+            它可以先读取原图中的设备、GPS、拍摄时间、SHA256 与 pHash，再按需修改 EXIF / GPS / 设备信息、重导出图像并尽量打散视觉指纹，
+            用于反跟踪、反重复素材关联以及降低平台自动风控误判的风险。
+          </p>
+          <div class="hero-actions">
+            <a class="primary-btn" href="#workspace">立即检测图片</a>
+            <a class="secondary-btn" href="#risk-note">查看风险说明</a>
+          </div>
+          <div class="hero-badges">
+            <span>100% 静态页面</span>
+            <span>图片不会上传到服务器</span>
+            <span>不收集数据</span>
+            <span>支持原图信息检测</span>
+          </div>
+        </div>
+
+        <div class="hero-stage" aria-hidden="true">
+          <article class="glass-panel float-panel">
+            <span class="panel-kicker">Source Inspect</span>
+            <strong>上传即读原始设备 / GPS / 哈希</strong>
+            <p>选图后马上检测原图里的设备、位置、拍摄时间、SHA256 和 pHash，不用先点击处理。</p>
+          </article>
+          <article class="glass-panel stage-main">
+            <span class="panel-kicker">Metadata Rewrite</span>
+            <strong>EXIF / GPS / 时间 / 设备 / 哈希链路一站式改写</strong>
+            <p>处理发生在当前浏览器，不依赖后端接口，适合直接部署到 Cloudflare Workers 或任意静态托管。</p>
+          </article>
+          <article class="glass-panel float-panel delay-panel">
+            <span class="panel-kicker">Anti-Tracking</span>
+            <strong>反跟踪、反重复素材关联、反静态指纹</strong>
+            <p>不止针对 X/Twitter，也考虑 Meta/Instagram、TikTok、Reddit 这类平台常见的自动化审核与风控场景。</p>
+          </article>
+        </div>
+      </header>
+
+      <section id="risk-note" class="feature-band">
+        <article class="feature-intro">
+          <p class="section-kicker">WHY IT EXISTS</p>
+          <h2>不止 X / Twitter，会做自动检测的平台很多</h2>
+          <p>
+            公开政策里，X / Twitter、Meta / Instagram、TikTok、Reddit 等平台都长期处理冒充、spam、误导性或异常重复内容。
+            实际风控不一定只看一张头像，但重复图片、相似素材、异常元数据、固定命名和行为信号常常会一起成为关联依据。
+            这个工具的目标不是“万能绕过”，而是把最容易被直接复用的图片指纹和元数据特征尽量打散。
+          </p>
+        </article>
+
+        <div class="feature-grid">
+          <article class="feature-card">
+            <span>01</span>
+            <strong>上传即检测原图</strong>
+            <p>读取原始设备、GPS、拍摄时间、尺寸、SHA256 与 pHash，先看清原图里到底带着什么信息。</p>
+          </article>
+          <article class="feature-card">
+            <span>02</span>
+            <strong>反跟踪处理链路</strong>
+            <p>在图像内容、元数据、文件名三层同时改动，不再只是简单改个文件名或清掉一部分 EXIF。</p>
+          </article>
+          <article class="feature-card">
+            <span>03</span>
+            <strong>静态部署、不收集数据</strong>
+            <p>整个网站没有后端数据库，图片处理发生在本地浏览器，适合对隐私和数据残留更敏感的场景。</p>
+          </article>
+          <article class="feature-card">
+            <span>04</span>
+            <strong>Apple 兼容与隐藏字段</strong>
+            <p>既可以补 Apple 更容易识别的镜头 / 时间 / GPS，也能额外随机亚秒时间、唯一 ID 和隐藏字段。</p>
+          </article>
+          <article class="feature-card">
+            <span>05</span>
+            <strong>拖拽上传与一键下载</strong>
+            <p>把图拖进来就能处理，单张可直接一键下载，多张会自动打成 ZIP，适合快速处理头像、封面和宣传图。</p>
+          </article>
+        </div>
+      </section>
+
+      <main id="workspace" class="workspace">
+        <section class="tool-surface">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">WORKSPACE</p>
+              <h2>检测并修改你的图片信息</h2>
+            </div>
+            <div id="runtimeStatus" class="status-pill status-ok">浏览器模式已就绪</div>
+          </div>
+
+          <div id="globalMessage" class="notice" hidden></div>
+
+          <form id="processForm" class="stack">
+            <div class="preset-row">
+              <div>
+                <span class="mini-label">快速模式</span>
+                <div class="preset-group">
+                  <button class="preset-chip" type="button" data-preset="avatar">反关联</button>
+                  <button class="preset-chip" type="button" data-preset="balanced">平衡模式</button>
+                  <button class="preset-chip" type="button" data-preset="apple">苹果兼容</button>
+                </div>
+              </div>
+              <button id="resetSettingsBtn" class="text-btn" type="button">恢复默认</button>
+            </div>
+
+            <p id="presetHint" class="preset-hint"></p>
+
+            <label id="dropZone" class="drop-zone">
+              <span class="drop-label">拖进来，或者点击选择文件</span>
+              <span class="drop-subtitle">
+                适合头像、封面、截图、宣传图。整套检测与处理都在当前浏览器本地完成，不上传原图，也不收集你的图片数据。
+              </span>
+              <input id="images" type="file" accept=".jpg,.jpeg,.png,.webp,.bmp,.tiff,.tif,.dng,.heic,.heif,.avif,.gif" multiple required>
+              <span id="fileCount" class="file-count">还没有选择文件</span>
+            </label>
+
+            <div class="field-grid field-grid-two">
+              <label class="field">
+                <span>GPS 预设</span>
+                <select id="gpsName"></select>
+              </label>
+              <label class="field">
+                <span>设备预设</span>
+                <select id="deviceName"></select>
+              </label>
+            </div>
+
+            <div class="field-grid field-grid-two">
+              <label class="field">
+                <span>自定义纬度</span>
+                <input id="customLat" type="text" placeholder="例如 39.9042">
+              </label>
+              <label class="field">
+                <span>自定义经度</span>
+                <input id="customLon" type="text" placeholder="例如 116.4074">
+              </label>
+            </div>
+
+            <div class="field-grid field-grid-two">
+              <label class="field">
+                <span>输出格式</span>
+                <select id="outputFormat">
+                  <option value="JPEG">JPEG</option>
+                  <option value="PNG">PNG</option>
+                  <option value="WEBP">WEBP</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>质量 <strong id="qualityValue">95</strong></span>
+                <input id="quality" type="range" min="50" max="100" value="95">
+              </label>
+            </div>
+
+            <label class="field">
+              <span>隐藏备注</span>
+              <textarea id="hiddenNote" rows="4" placeholder="写入 EXIF UserComment 的备注，可留空。"></textarea>
+            </label>
+
+            <section id="metadataEditor" class="metadata-editor">
+              <div class="metadata-editor-head">
+                <div>
+                  <span class="mini-label">REWRITE</span>
+                  <h3>检测后可直接改写的元数据</h3>
+                  <p class="metadata-editor-copy">
+                    检测完成后，右侧识别到的标签会同步出现在这里。每一项都会尽量翻译成中文并附一行简短解释。高影响字段会自动排除在一键随机之外，但仍然可以手动自定义。
+                  </p>
+                </div>
+                <div class="metadata-editor-tools">
+                  <button class="text-btn" type="button" data-metadata-action="keep-all">全部保持</button>
+                  <button class="text-btn" type="button" data-metadata-action="random-all">随机安全项</button>
+                </div>
+              </div>
+
+              <label class="field metadata-search-field">
+                <span>搜索标签</span>
+                <input id="metadataSearch" type="text" placeholder="例如 设备品牌、镜头型号、GPS、拍摄时间">
+              </label>
+
+              <div id="metadataEditorSummary" class="metadata-editor-summary">
+                选中单张图片后，这里会出现全量可编辑标签。
+              </div>
+
+              <div id="metadataEditorBody" class="metadata-editor-body">
+                <div class="empty-state compact">
+                  <strong>还没有可编辑的元数据</strong>
+                  <span>先上传单张图片完成检测，左侧才会出现逐项随机和自定义入口。</span>
+                </div>
+              </div>
+            </section>
+
+            <div class="toggle-grid">
+              <label class="toggle-card">
+                <input id="tweakPhash" type="checkbox" checked>
+                <div>
+                  <strong>尝试改变 pHash</strong>
+                  <span>会对最终导出结果做校验，不变化时继续加强扰动，而不是只改几个像素碰运气。</span>
+                </div>
+              </label>
+              <label class="toggle-card">
+                <input id="microResample" type="checkbox" checked>
+                <div>
+                  <strong>微缩放重采样</strong>
+                  <span>用极轻的缩放和位移重新采样整张图，进一步打散视觉指纹，肉眼几乎不明显。</span>
+                </div>
+              </label>
+              <label class="toggle-card">
+                <input id="randomizeMetadata" type="checkbox" checked>
+                <div>
+                  <strong>写入随机 nonce</strong>
+                  <span>为每次导出增加随机标记，让相同图片的结果更不容易完全一致。</span>
+                </div>
+              </label>
+              <label class="toggle-card">
+                <input id="randomExtraExif" type="checkbox" checked>
+                <div>
+                  <strong>随机隐藏 EXIF 字段</strong>
+                  <span>额外改写亚秒时间、唯一 ID、主机信息和 GPS 附加字段，适合更谨慎的场景。</span>
+                </div>
+              </label>
+              <label class="toggle-card">
+                <input id="randomTimestamp" type="checkbox" checked>
+                <div>
+                  <strong>随机拍摄时间</strong>
+                  <span>适合保留元数据的场景，会写入更自然的 EXIF 拍摄时间。</span>
+                </div>
+              </label>
+              <label class="toggle-card">
+                <input id="stripExif" type="checkbox">
+                <div>
+                  <strong>清除全部 EXIF</strong>
+                  <span>头像风控时很常用。启用后不会写入 GPS、设备、备注和时间。</span>
+                </div>
+              </label>
+              <label class="toggle-card">
+                <input id="randomizeFileName" type="checkbox" checked>
+                <div>
+                  <strong>随机下载文件尾缀</strong>
+                  <span>导出文件名会附加随机尾缀，避免不同站点里继续复用同一个固定命名。</span>
+                </div>
+              </label>
+            </div>
+
+            <div class="notice notice-soft">
+              如果你没有勾“清除全部 EXIF”，网站会优先按更适合 Apple 识别元数据的 JPEG 实际导出。
+              需要注意: 网页版能改的是 EXIF 拍摄时间，不能改系统里的“最后修改时间”。
+            </div>
+
+            <div class="actions">
+              <button id="submitBtn" class="primary-btn" type="submit">开始处理</button>
+              <button id="downloadSingleBtn" class="secondary-btn" type="button" hidden disabled>一键下载更改后的图片</button>
+              <button id="downloadAllBtn" class="secondary-btn" type="button" disabled>下载全部结果 ZIP</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="result-surface">
+          <div class="section-subhead">
+            <div>
+              <p class="section-kicker">INSPECT</p>
+              <h3>上传即检测原图信息</h3>
+            </div>
+            <div id="sourceStatus" class="status-pill status-ok">等待上传</div>
+          </div>
+
+          <div id="sourceInsights" class="source-grid">
+            <div class="empty-state compact">
+              <strong>还没有原图检测结果</strong>
+              <span>选择图片后，这里会直接显示原始设备、时间、GPS、SHA256、pHash 与尺寸。</span>
+            </div>
+          </div>
+
+          <div class="surface-divider"></div>
+
+          <div class="section-subhead">
+            <div>
+              <p class="section-kicker">RESULTS</p>
+              <h3>处理结果</h3>
+            </div>
+            <div id="progressText" class="progress-label">等待开始</div>
+          </div>
+
+          <div class="progress-shell">
+            <div id="progressBar" class="progress-bar"></div>
+          </div>
+
+          <div id="results" class="results-grid">
+            <div class="empty-state">
+              <strong>还没有处理结果</strong>
+              <span>选图后点击“开始处理”，处理完成的结果会显示在这里。</span>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <section class="foot-note">
+        <div>
+          <p class="section-kicker">LIMITS</p>
+          <h2>这不是万能伪装，但比“只改文件名”强很多</h2>
+        </div>
+        <div class="foot-copy">
+          <p>
+            平台可能还会结合登录环境、网络、行为模式、设备指纹等其他信号。这个网站能做的是尽量打散图片本身的直接复用特征，
+            尤其适合头像、封面和重复素材去关联场景。它本身是静态页面，不负责托管或存储你的图片，也不会把你的图提交到数据库。
+          </p>
+          <div class="signature">
+            <span>作者: 南盺</span>
+            <span>推特: @xynMTFxyn</span>
+            <span>备案号: 大包字京IPC备1145141919号</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>
