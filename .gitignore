@@ -5,3 +5,10 @@ __pycache__/
 node_modules/
 workers_dom_dump.html
 .wrangler/
+build/
+dist/
+*.spec
+!mobile/buildozer.spec
+mobile/.buildozer/
+mobile/bin/
+mobile/core.py
