@@ -143,7 +143,7 @@ jobs:
             zip \
             zlib1g-dev
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install "cython<3" buildozer
+          python -m pip install "cython<3" "buildozer==1.5.0"
 
       - name: Build debug APK
         run: |

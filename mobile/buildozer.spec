@@ -21,6 +21,7 @@ android.minapi = 26
 android.ndk = 25b
 android.accept_sdk_license = True
 android.archs = arm64-v8a, armeabi-v7a
+p4a.branch = v2024.01.21
 
 # 图标 (替换为实际 icon.png)
 # icon.filename = %(source.dir)s/assets/icon.png
