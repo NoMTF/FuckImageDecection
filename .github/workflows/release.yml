@@ -125,6 +125,12 @@ jobs:
           python-version: "3.10"
           cache: pip
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Install Android build dependencies
         run: |
           sudo apt-get update
@@ -147,9 +153,17 @@ jobs:
 
       - name: Build debug APK
         run: |
+          export JAVA_HOME="${JAVA_HOME_17_X64:-/usr/lib/jvm/temurin-17-jdk-amd64}"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          java -version
           cp core.py mobile/core.py
           cd mobile
-          buildozer -v android debug
+          buildozer -v android debug || {
+            echo "::group::Android build diagnostics"
+            find .buildozer -type f \( -name "*.log" -o -name "build.gradle" -o -name "gradle.properties" \) -print -exec sh -c 'echo "--- $1"; tail -n 160 "$1" 2>/dev/null || true' sh {} \;
+            echo "::endgroup::"
+            exit 1
+          }
           mkdir -p ../release
           cp "$(ls -1 bin/*.apk | head -n 1)" ../release/ImagePrivacyTool-Android.apk
 
