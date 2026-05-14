@@ -330,6 +330,48 @@ MOBILE_ADVANCED_METADATA_KEYS = [
     "gps_speed",
 ]
 
+EDITABLE_EXIF_TAGS: dict[tuple[str, str], str] = {
+    ("0th", "Software"): "software",
+    ("0th", "HostComputer"): "host_computer",
+    ("0th", "Artist"): "artist",
+    ("0th", "Copyright"): "copyright",
+    ("0th", "ImageDescription"): "image_description",
+    ("0th", "Make"): "make",
+    ("0th", "Model"): "model",
+    ("0th", "DateTime"): "datetime",
+    ("Exif", "LensMake"): "lens_make",
+    ("Exif", "LensModel"): "lens_model",
+    ("Exif", "LensSerialNumber"): "lens_serial",
+    ("Exif", "BodySerialNumber"): "body_serial",
+    ("Exif", "ImageUniqueID"): "image_unique_id",
+    ("Exif", "DateTimeOriginal"): "datetime_original",
+    ("Exif", "DateTimeDigitized"): "datetime_digitized",
+    ("Exif", "OffsetTime"): "offset_time",
+    ("Exif", "OffsetTimeOriginal"): "offset_time",
+    ("Exif", "OffsetTimeDigitized"): "offset_time",
+    ("Exif", "SubSecTime"): "subsec_time",
+    ("Exif", "SubSecTimeOriginal"): "subsec_time",
+    ("Exif", "SubSecTimeDigitized"): "subsec_time",
+    ("Exif", "ExposureTime"): "exposure_time",
+    ("Exif", "FNumber"): "f_number",
+    ("Exif", "FocalLength"): "focal_length",
+    ("Exif", "FocalLengthIn35mmFilm"): "focal_length_35mm",
+    ("Exif", "ISOSpeedRatings"): "iso",
+    ("Exif", "PhotographicSensitivity"): "iso",
+    ("Exif", "ExposureProgram"): "exposure_program",
+    ("Exif", "ExposureMode"): "exposure_mode",
+    ("Exif", "MeteringMode"): "metering_mode",
+    ("Exif", "WhiteBalance"): "white_balance",
+    ("Exif", "Flash"): "flash",
+    ("Exif", "SceneCaptureType"): "scene_capture_type",
+    ("Exif", "DigitalZoomRatio"): "digital_zoom_ratio",
+    ("Exif", "SensingMethod"): "sensing_method",
+    ("Exif", "UserComment"): "hidden_note",
+    ("GPS", "GPSAltitude"): "gps_altitude",
+    ("GPS", "GPSImgDirection"): "gps_img_direction",
+    ("GPS", "GPSSpeed"): "gps_speed",
+}
+
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
@@ -416,6 +458,63 @@ def _format_exif_offset(dt: datetime) -> str:
     if len(offset) == 5:
         return f"{offset[:3]}:{offset[3:]}"
     return "+00:00"
+
+
+def _rational_to_float(value: object) -> Optional[float]:
+    if isinstance(value, tuple) and len(value) == 2:
+        numerator, denominator = value
+        try:
+            denominator = float(denominator)
+            if denominator == 0:
+                return None
+            return float(numerator) / denominator
+        except (TypeError, ValueError):
+            return None
+    if isinstance(value, list) and len(value) == 2:
+        return _rational_to_float(tuple(value))
+    return _parse_float(value)
+
+
+def _rational_to_display(value: object, decimals: int = 4) -> str:
+    number = _rational_to_float(value)
+    if number is None:
+        return str(value)
+    text = f"{number:.{decimals}f}".rstrip("0").rstrip(".")
+    return text or "0"
+
+
+def _exposure_to_display(value: object) -> str:
+    if isinstance(value, tuple) and len(value) == 2:
+        numerator, denominator = value
+        if numerator == 1:
+            return f"1/{denominator}"
+    return _rational_to_display(value, 6)
+
+
+def _decode_user_comment(value: object) -> str:
+    if isinstance(value, bytes):
+        for prefix in (b"ASCII\x00\x00\x00", b"UNICODE\x00"):
+            if value.startswith(prefix):
+                value = value[len(prefix):]
+                break
+    return _decode_metadata_text(value)
+
+
+def _decode_metadata_text(value: object) -> str:
+    if isinstance(value, bytes):
+        for encoding in ("utf-8", "utf-16", "latin-1"):
+            try:
+                return value.decode(encoding, "ignore").replace("\x00", "").strip()
+            except Exception:
+                pass
+        return value.hex()
+    if isinstance(value, tuple):
+        if len(value) == 2 and all(isinstance(item, int) for item in value):
+            return _rational_to_display(value)
+        return ", ".join(_decode_metadata_text(item) for item in value)
+    if isinstance(value, list):
+        return ", ".join(_decode_metadata_text(item) for item in value)
+    return str(value).replace("\x00", "").strip()
 
 
 def _encode_text(value: object) -> bytes:
@@ -821,6 +920,226 @@ def _phash(img: Image.Image) -> str:
         return str(imagehash.phash(img.convert("RGB")))
     small = img.convert("L").resize((32, 32), Image.Resampling.LANCZOS)
     return "visual:" + hashlib.sha256(small.tobytes()).hexdigest()[:16]
+
+
+def _tag_name(section: str, tag_id: object) -> str:
+    try:
+        return piexif.TAGS.get(section, {}).get(int(tag_id), {}).get("name") or f"Tag {tag_id}"
+    except (TypeError, ValueError):
+        return f"Tag {tag_id}"
+
+
+def _scan_value_to_editable(key: str, value: object) -> str:
+    if key == "hidden_note":
+        return _decode_user_comment(value)
+    if key == "exposure_time":
+        return _exposure_to_display(value)
+    if key in {
+        "f_number",
+        "focal_length",
+        "digital_zoom_ratio",
+        "gps_altitude",
+        "gps_img_direction",
+        "gps_speed",
+    }:
+        return _rational_to_display(value)
+    if key in {
+        "focal_length_35mm",
+        "iso",
+        "exposure_program",
+        "exposure_mode",
+        "metering_mode",
+        "white_balance",
+        "flash",
+        "scene_capture_type",
+        "sensing_method",
+    }:
+        parsed = _parse_int(value)
+        return str(parsed) if parsed is not None else _decode_metadata_text(value)
+    return _decode_metadata_text(value)
+
+
+def _match_device_preset(make: str, model: str) -> str:
+    make_norm = make.strip().lower()
+    model_norm = model.strip().lower()
+    for preset_name, (preset_make, preset_model) in DEVICE_PRESETS.items():
+        if preset_make.lower() == make_norm and preset_model.lower() == model_norm:
+            return preset_name
+    for preset_name, (preset_make, preset_model) in DEVICE_PRESETS.items():
+        if preset_make.lower() == make_norm and preset_model.lower() in model_norm:
+            return preset_name
+    return ""
+
+
+def _read_xmp_excerpt(path: Path, limit: int = 800) -> str:
+    try:
+        data = path.read_bytes()
+    except Exception:
+        return ""
+    start = data.find(b"<x:xmpmeta")
+    if start < 0:
+        start = data.find(b"<rdf:RDF")
+    if start < 0:
+        return ""
+    end = data.find(b"</x:xmpmeta>", start)
+    end_len = len(b"</x:xmpmeta>")
+    if end < 0:
+        end = data.find(b"</rdf:RDF>", start)
+        end_len = len(b"</rdf:RDF>")
+    if end < 0:
+        end = min(len(data), start + limit)
+        end_len = 0
+    text = data[start : min(end + end_len, start + limit)].decode("utf-8", "ignore")
+    return " ".join(text.split())
+
+
+def _dms_array_to_decimal(ref: str, value: object) -> Optional[float]:
+    if not isinstance(value, (tuple, list)) or len(value) < 3:
+        return None
+    degrees = _rational_to_float(value[0])
+    minutes = _rational_to_float(value[1])
+    seconds = _rational_to_float(value[2])
+    if degrees is None or minutes is None or seconds is None:
+        return None
+    decimal = degrees + minutes / 60 + seconds / 3600
+    if ref.upper() in {"S", "W"}:
+        decimal *= -1
+    return decimal
+
+
+def _format_scan_value(section: str, name: str, value: object) -> str:
+    if name == "UserComment":
+        return _decode_user_comment(value)
+    if name == "ExposureTime":
+        return _exposure_to_display(value)
+    if name in {
+        "FNumber",
+        "FocalLength",
+        "DigitalZoomRatio",
+        "GPSAltitude",
+        "GPSImgDirection",
+        "GPSSpeed",
+    }:
+        return _rational_to_display(value)
+    return _decode_metadata_text(value)
+
+
+def scan_image_metadata(path: Path) -> dict[str, object]:
+    """
+    Scan source image metadata for display and editing.
+    Returns:
+      - fields: every detected row that we can read locally
+      - editable: subset mapped to ProcessOptions.metadata_overrides / hidden_note
+      - gps: decimal custom_lat/custom_lon if present
+      - device_name: matched device preset if Make/Model match a known preset
+    """
+    path = Path(path)
+    fields: list[dict[str, str]] = []
+    editable: dict[str, str] = {}
+    gps: dict[str, float] = {}
+    device_name = ""
+    exif_dict = {"0th": {}, "Exif": {}, "GPS": {}, "Interop": {}, "1st": {}}
+
+    with Image.open(path) as im:
+        fields.extend(
+            [
+                {"group": "File", "name": "Name", "label": "文件名", "value": path.name, "editable_key": ""},
+                {"group": "File", "name": "Size", "label": "文件大小", "value": str(path.stat().st_size), "editable_key": ""},
+                {"group": "Image", "name": "Format", "label": "格式", "value": str(im.format or ""), "editable_key": ""},
+                {"group": "Image", "name": "Mode", "label": "色彩模式", "value": str(im.mode), "editable_key": ""},
+                {"group": "Image", "name": "Width", "label": "宽度", "value": str(im.width), "editable_key": ""},
+                {"group": "Image", "name": "Height", "label": "高度", "value": str(im.height), "editable_key": ""},
+                {"group": "Hash", "name": "SHA256", "label": "SHA256", "value": _sha256_file(path), "editable_key": ""},
+                {"group": "Hash", "name": "pHash", "label": "pHash", "value": _phash(im), "editable_key": ""},
+            ]
+        )
+        if im.info.get("icc_profile"):
+            fields.append(
+                {
+                    "group": "ICC",
+                    "name": "ICCProfile",
+                    "label": "ICC 色彩配置",
+                    "value": f"{len(im.info['icc_profile'])} bytes",
+                    "editable_key": "",
+                }
+            )
+        exif_bytes = im.info.get("exif")
+
+    try:
+        if exif_bytes:
+            exif_dict = piexif.load(exif_bytes)
+        else:
+            exif_dict = piexif.load(str(path))
+    except Exception:
+        exif_dict = {"0th": {}, "Exif": {}, "GPS": {}, "Interop": {}, "1st": {}}
+
+    make = model = ""
+    for section in ("0th", "Exif", "GPS", "Interop", "1st"):
+        entries = exif_dict.get(section) or {}
+        for tag_id, raw_value in entries.items():
+            name = _tag_name(section, tag_id)
+            editable_key = EDITABLE_EXIF_TAGS.get((section, name), "")
+            display = _format_scan_value(section, name, raw_value)
+            if editable_key and editable_key not in editable:
+                editable[editable_key] = _scan_value_to_editable(editable_key, raw_value)
+            fields.append(
+                {
+                    "group": section,
+                    "name": name,
+                    "label": name,
+                    "value": display,
+                    "editable_key": editable_key,
+                }
+            )
+            if section == "0th" and name == "Make":
+                make = display
+            elif section == "0th" and name == "Model":
+                model = display
+
+    gps_entries = exif_dict.get("GPS") or {}
+    lat = _dms_array_to_decimal(
+        _decode_metadata_text(gps_entries.get(piexif.GPSIFD.GPSLatitudeRef, "")),
+        gps_entries.get(piexif.GPSIFD.GPSLatitude),
+    )
+    lon = _dms_array_to_decimal(
+        _decode_metadata_text(gps_entries.get(piexif.GPSIFD.GPSLongitudeRef, "")),
+        gps_entries.get(piexif.GPSIFD.GPSLongitude),
+    )
+    if lat is not None and lon is not None:
+        gps["custom_lat"] = lat
+        gps["custom_lon"] = lon
+        fields.append(
+            {
+                "group": "GPS",
+                "name": "DecimalCoordinates",
+                "label": "GPS 十进制坐标",
+                "value": f"{lat:.6f}, {lon:.6f}",
+                "editable_key": "custom_lat/custom_lon",
+            }
+        )
+
+    xmp_excerpt = _read_xmp_excerpt(path)
+    if xmp_excerpt:
+        fields.append(
+            {
+                "group": "XMP",
+                "name": "Packet",
+                "label": "XMP 数据包",
+                "value": xmp_excerpt,
+                "editable_key": "",
+            }
+        )
+
+    if make or model:
+        device_name = _match_device_preset(make, model)
+
+    return {
+        "fields": fields,
+        "editable": editable,
+        "gps": gps,
+        "device_name": device_name,
+        "summary": f"扫描到 {len(fields)} 项，其中 {len(editable)} 项可自动填入编辑器。",
+    }
 
 
 def _apply_perceptual_tweak(base: Image.Image, attempt: int) -> Image.Image:

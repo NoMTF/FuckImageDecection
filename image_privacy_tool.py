@@ -36,6 +36,7 @@ from core import (
     load_settings,
     process_image,
     save_settings,
+    scan_image_metadata,
     IMAGE_EXTENSIONS,
 )
 
@@ -43,7 +44,7 @@ from core import (
 # App-wide constants
 # ──────────────────────────────────────────────
 APP_NAME    = "Image Privacy Tool"
-APP_VERSION = "v2.2"
+APP_VERSION = "v2.3"
 THUMB_SIZE  = (300, 220)
 
 ACCENT  = "#2b9af3"
@@ -246,6 +247,29 @@ class SettingsPanel(ctk.CTkScrollableFrame):
             if entry.get().strip()
         }
 
+    def apply_scan_result(self, scan: dict[str, object]) -> None:
+        editable = scan.get("editable", {})
+        if isinstance(editable, dict):
+            hidden_note = editable.get("hidden_note")
+            if hidden_note:
+                self.note_var.set(str(hidden_note))
+            for key, value in editable.items():
+                entry = self.metadata_entries.get(str(key))
+                if entry:
+                    entry.delete(0, "end")
+                    entry.insert(0, str(value))
+
+        gps = scan.get("gps", {})
+        if isinstance(gps, dict):
+            if "custom_lat" in gps:
+                self.lat_var.set(f"{float(gps['custom_lat']):.6f}")
+            if "custom_lon" in gps:
+                self.lon_var.set(f"{float(gps['custom_lon']):.6f}")
+
+        device_name = scan.get("device_name")
+        if device_name:
+            self.device_var.set(str(device_name))
+
     def get_custom_coords(self) -> tuple[Optional[float], Optional[float]]:
         try:
             lat = float(self.lat_var.get().strip()) if self.lat_var.get().strip() else None
@@ -328,13 +352,15 @@ class SingleTab(ctk.CTkFrame):
                      placeholder_text="点击右侧按钮选择图片…").grid(row=1, column=0, padx=8, pady=(2,6), sticky="we")
         ctk.CTkButton(file_frm, text="浏览", width=70,
                       command=self._pick_src).grid(row=1, column=1, padx=(0,8), pady=(2,6))
+        ctk.CTkButton(file_frm, text="扫描", width=70,
+                      command=self._scan_current).grid(row=1, column=2, padx=(0,8), pady=(2,6))
 
         ctk.CTkLabel(file_frm, text="输出路径").grid(row=2, column=0, sticky="w", padx=8)
         self.dst_var = ctk.StringVar()
         ctk.CTkEntry(file_frm, textvariable=self.dst_var, width=420,
                      placeholder_text="自动根据源文件生成，可修改…").grid(row=3, column=0, padx=8, pady=(2,8), sticky="we")
         ctk.CTkButton(file_frm, text="保存到", width=70,
-                      command=self._pick_dst).grid(row=3, column=1, padx=(0,8), pady=(2,8))
+                      command=self._pick_dst).grid(row=3, column=1, columnspan=2, padx=(0,8), pady=(2,8))
         file_frm.columnconfigure(0, weight=1)
 
         # ── Preview row ───────────────────────
@@ -402,6 +428,49 @@ class SingleTab(ctk.CTkFrame):
         if thumb:
             self._src_thumb = thumb
             self.src_canvas._img_label.configure(image=thumb, text="")
+        self._scan_current(auto=True)
+
+    @staticmethod
+    def _format_scan(scan: dict[str, object]) -> str:
+        fields = scan.get("fields", [])
+        lines = [
+            "原图扫描结果",
+            str(scan.get("summary", "")),
+            "",
+            "可编辑字段会自动填入左侧输入框；你可以逐项修改后再点开始处理。",
+            "",
+        ]
+        if isinstance(fields, list):
+            for item in fields:
+                if not isinstance(item, dict):
+                    continue
+                editable = item.get("editable_key") or ""
+                marker = f"  [可编辑: {editable}]" if editable else ""
+                lines.append(
+                    f"{item.get('group', '')}.{item.get('name', '')}: {item.get('value', '')}{marker}"
+                )
+        return "\n".join(lines)
+
+    def _scan_current(self, auto: bool = False):
+        src_str = self.src_var.get().strip()
+        if not src_str:
+            if not auto:
+                messagebox.showwarning("没有源图片", "请先选择源图片。")
+            return
+        src = Path(src_str)
+        if not src.exists():
+            if not auto:
+                messagebox.showerror("文件不存在", f"源图片不存在:\n{src}")
+            return
+        try:
+            scan = scan_image_metadata(src)
+        except Exception as exc:
+            self._log_write(f"扫描失败:\n{exc}")
+            self._status_cb("扫描失败")
+            return
+        self._settings.apply_scan_result(scan)
+        self._log_write(self._format_scan(scan))
+        self._status_cb(str(scan.get("summary", "扫描完成")))
 
     def _pick_dst(self):
         fmt = self._settings.fmt_var.get()

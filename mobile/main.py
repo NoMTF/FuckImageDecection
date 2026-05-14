@@ -49,6 +49,7 @@ from core import (
     ProcessOptions,
     process_image,
     batch_process,
+    scan_image_metadata,
     IMAGE_EXTENSIONS,
 )
 
@@ -393,7 +394,7 @@ class ImagePrivacyApp(MDApp):
         dialog = MDDialog(
             title="关于 Image Privacy Tool",
             text=(
-                "版本: v2.2\n\n"
+                "版本: v2.3\n\n"
                 "轻量级图片隐私处理工具\n"
                 "修改文件哈希、EXIF 元数据、拍摄时间、镜头/曝光/GPS 扩展字段和可选感知哈希\n\n"
                 "MIT License © 2026"
@@ -455,6 +456,50 @@ class ImagePrivacyApp(MDApp):
             self.screen.ids.dst_field.text = str(
                 src.with_name(src.stem + "_privacy.jpg")
             )
+            self.scan_current_image(src)
+
+    def scan_current_image(self, src: Path):
+        try:
+            scan = scan_image_metadata(src)
+        except Exception as exc:
+            self._log(f"扫描失败: {exc}")
+            return
+
+        ids = self.screen.ids
+        editable = scan.get("editable", {})
+        if isinstance(editable, dict):
+            hidden_note = editable.get("hidden_note")
+            if hidden_note:
+                ids.note_field.text = str(hidden_note)
+            for key in MOBILE_ADVANCED_METADATA_KEYS:
+                widget = ids.get(f"{key}_field")
+                if widget and key in editable:
+                    widget.text = str(editable[key])
+
+        gps = scan.get("gps", {})
+        if isinstance(gps, dict):
+            if "custom_lat" in gps:
+                ids.lat_field.text = f"{float(gps['custom_lat']):.6f}"
+            if "custom_lon" in gps:
+                ids.lon_field.text = f"{float(gps['custom_lon']):.6f}"
+
+        device_name = scan.get("device_name")
+        if device_name:
+            ids.device_field.text = str(device_name)
+
+        lines = [
+            "原图扫描结果",
+            str(scan.get("summary", "")),
+            "可编辑字段已填入表单，可逐项修改。",
+            "",
+        ]
+        fields = scan.get("fields", [])
+        if isinstance(fields, list):
+            for item in fields[:160]:
+                if isinstance(item, dict):
+                    marker = f" [可编辑:{item.get('editable_key')}]" if item.get("editable_key") else ""
+                    lines.append(f"{item.get('group')}.{item.get('name')}: {item.get('value')}{marker}")
+        self._log("\n".join(lines))
 
     def pick_dst(self):
         if HAS_PLYER:
