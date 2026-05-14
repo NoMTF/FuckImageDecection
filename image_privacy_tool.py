@@ -26,11 +26,13 @@ except ImportError:
     sys.exit("请安装 Pillow: pip install Pillow")
 
 from core import (
+    ADVANCED_METADATA_FIELDS,
     GPS_PRESETS,
     DEVICE_PRESETS,
     ProcessOptions,
     ProcessResult,
     batch_process,
+    generate_random_metadata_overrides,
     load_settings,
     process_image,
     save_settings,
@@ -41,7 +43,7 @@ from core import (
 # App-wide constants
 # ──────────────────────────────────────────────
 APP_NAME    = "Image Privacy Tool"
-APP_VERSION = "v2.1"
+APP_VERSION = "v2.2"
 THUMB_SIZE  = (300, 220)
 
 ACCENT  = "#2b9af3"
@@ -113,6 +115,56 @@ class SettingsPanel(ctk.CTkScrollableFrame):
 
         _pack_separator(self)
 
+        # ── Advanced metadata ────────────────
+        ctk.CTkLabel(
+            self,
+            text="🧬  可编辑元数据（对齐网页版）",
+            font=ctk.CTkFont(weight="bold"),
+        ).pack(**pad)
+        self.extra_var = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(
+            self,
+            text="安全随机扩展字段（不动方向/色彩/尺寸）",
+            variable=self.extra_var,
+        ).pack(**pad)
+        btn_row = ctk.CTkFrame(self, fg_color="transparent")
+        btn_row.pack(padx=10, pady=(4, 2), fill="x")
+        ctk.CTkButton(
+            btn_row,
+            text="填入随机示例",
+            width=116,
+            height=28,
+            command=self._fill_random_metadata,
+        ).pack(side="left", padx=(0, 6))
+        ctk.CTkButton(
+            btn_row,
+            text="清空自定义",
+            width=116,
+            height=28,
+            fg_color="gray40",
+            hover_color="gray30",
+            command=self._clear_metadata,
+        ).pack(side="left")
+
+        self.metadata_entries: dict[str, ctk.CTkEntry] = {}
+        for field in ADVANCED_METADATA_FIELDS:
+            ctk.CTkLabel(
+                self,
+                text=f"{field['label']} - {field['description']}",
+                font=ctk.CTkFont(size=11),
+                wraplength=245,
+                justify="left",
+            ).pack(**pad)
+            entry = ctk.CTkEntry(
+                self,
+                placeholder_text=field["placeholder"],
+                width=250,
+            )
+            entry.pack(padx=10, pady=(2, 4))
+            self.metadata_entries[field["key"]] = entry
+
+        _pack_separator(self)
+
         # ── Note ─────────────────────────────
         ctk.CTkLabel(self, text="💬  隐藏备注 (EXIF UserComment)",
                      font=ctk.CTkFont(weight="bold")).pack(**pad)
@@ -177,6 +229,23 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         ).pack(side="left", fill="x", expand=True)
 
     # ── public helpers ────────────────────────
+    def _fill_random_metadata(self) -> None:
+        values = generate_random_metadata_overrides(self.device_var.get())
+        for key, entry in self.metadata_entries.items():
+            entry.delete(0, "end")
+            entry.insert(0, values.get(key, ""))
+
+    def _clear_metadata(self) -> None:
+        for entry in self.metadata_entries.values():
+            entry.delete(0, "end")
+
+    def get_metadata_overrides(self) -> dict[str, str]:
+        return {
+            key: entry.get().strip()
+            for key, entry in self.metadata_entries.items()
+            if entry.get().strip()
+        }
+
     def get_custom_coords(self) -> tuple[Optional[float], Optional[float]]:
         try:
             lat = float(self.lat_var.get().strip()) if self.lat_var.get().strip() else None
@@ -197,6 +266,8 @@ class SettingsPanel(ctk.CTkScrollableFrame):
             tweak_phash       = self.tweak_var.get(),
             randomize_metadata= self.rand_var.get(),
             randomize_timestamp= self.time_var.get(),
+            random_extra_metadata= self.extra_var.get(),
+            metadata_overrides= self.get_metadata_overrides(),
             strip_exif        = self.strip_var.get(),
             jpeg_quality      = self.quality_var.get(),
             output_format     = self.fmt_var.get(),
@@ -209,6 +280,8 @@ class SettingsPanel(ctk.CTkScrollableFrame):
             "tweak":       self.tweak_var.get(),
             "rand":        self.rand_var.get(),
             "time":        self.time_var.get(),
+            "extra":       self.extra_var.get(),
+            "metadata_overrides": self.get_metadata_overrides(),
             "strip":       self.strip_var.get(),
             "fmt":         self.fmt_var.get(),
             "quality":     self.quality_var.get(),
@@ -220,6 +293,12 @@ class SettingsPanel(ctk.CTkScrollableFrame):
         self.tweak_var.set(d.get("tweak", True))
         self.rand_var.set(d.get("rand",  True))
         self.time_var.set(d.get("time",  True))
+        self.extra_var.set(d.get("extra", True))
+        for key, value in d.get("metadata_overrides", {}).items():
+            entry = self.metadata_entries.get(key)
+            if entry:
+                entry.delete(0, "end")
+                entry.insert(0, str(value))
         self.strip_var.set(d.get("strip", False))
         self.fmt_var.set(d.get("fmt",    "JPEG"))
         self.quality_var.set(d.get("quality", 95))
@@ -598,6 +677,7 @@ class AboutTab(ctk.CTkFrame):
             "  ✅  修改 SHA-256 文件哈希\n"
             "  ✅  伪造 EXIF GPS 地理位置\n"
             "  ✅  成套伪造设备与镜头信息\n"
+            "  ✅  自定义软件、作者、版权、曝光、ISO、白平衡、GPS 扩展字段\n"
             "  ✅  随机拍摄时间并同步文件修改时间\n"
             "  ✅  写入隐藏备注（UserComment）\n"
             "  ✅  可选像素微扰以改变感知哈希(pHash)\n"

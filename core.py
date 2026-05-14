@@ -277,6 +277,59 @@ DEVICE_EXIF_PROFILES: dict[str, dict[str, object]] = {
     },
 }
 
+ADVANCED_METADATA_FIELDS: list[dict[str, str]] = [
+    {"key": "software", "label": "软件 Software", "placeholder": "Image Metadata Modifier", "description": "写入导出软件名，常被平台用于来源判断。"},
+    {"key": "host_computer", "label": "主机 HostComputer", "placeholder": "iPhone / MacBook / Workstation", "description": "写入处理设备或主机名。"},
+    {"key": "artist", "label": "作者 Artist", "placeholder": "匿名作者", "description": "写入作者或创建者。"},
+    {"key": "copyright", "label": "版权 Copyright", "placeholder": "Copyright 2026", "description": "写入版权声明。"},
+    {"key": "image_description", "label": "描述 ImageDescription", "placeholder": "图片描述", "description": "写入图片描述。"},
+    {"key": "make", "label": "设备品牌 Make", "placeholder": "Apple", "description": "覆盖拍摄设备厂商。"},
+    {"key": "model", "label": "设备型号 Model", "placeholder": "iPhone 15 Pro", "description": "覆盖拍摄设备型号。"},
+    {"key": "lens_make", "label": "镜头品牌 LensMake", "placeholder": "Apple", "description": "覆盖镜头厂商，应和设备匹配。"},
+    {"key": "lens_model", "label": "镜头型号 LensModel", "placeholder": "iPhone back camera 6.86mm f/1.78", "description": "覆盖镜头型号，应和设备匹配。"},
+    {"key": "lens_serial", "label": "镜头序列号 LensSerialNumber", "placeholder": "随机十六进制", "description": "写入镜头序列号。"},
+    {"key": "body_serial", "label": "机身序列号 BodySerialNumber", "placeholder": "随机十六进制", "description": "写入机身序列号。"},
+    {"key": "image_unique_id", "label": "图像唯一 ID ImageUniqueID", "placeholder": "32 位十六进制", "description": "写入图像唯一标识。"},
+    {"key": "datetime", "label": "通用时间 DateTime", "placeholder": "2026:05:14 12:30:00", "description": "写入 0th DateTime。"},
+    {"key": "datetime_original", "label": "拍摄时间 DateTimeOriginal", "placeholder": "2026:05:14 12:30:00", "description": "写入原始拍摄时间。"},
+    {"key": "datetime_digitized", "label": "数字化时间 DateTimeDigitized", "placeholder": "2026:05:14 12:30:00", "description": "写入数字化时间。"},
+    {"key": "offset_time", "label": "时区 OffsetTime", "placeholder": "+08:00", "description": "写入时间时区偏移。"},
+    {"key": "subsec_time", "label": "亚秒 SubSecTime", "placeholder": "001-999", "description": "写入秒以下时间片段。"},
+    {"key": "exposure_time", "label": "快门 ExposureTime", "placeholder": "1/120", "description": "写入快门速度。"},
+    {"key": "f_number", "label": "光圈 FNumber", "placeholder": "1.8", "description": "写入光圈值。"},
+    {"key": "focal_length", "label": "焦距 FocalLength", "placeholder": "6.86", "description": "写入实际焦距。"},
+    {"key": "focal_length_35mm", "label": "等效焦距 35mm", "placeholder": "24", "description": "写入 35mm 等效焦距。"},
+    {"key": "iso", "label": "ISO PhotographicSensitivity", "placeholder": "64", "description": "写入感光度。"},
+    {"key": "exposure_program", "label": "曝光程序 ExposureProgram", "placeholder": "2", "description": "写入曝光程序编号。"},
+    {"key": "exposure_mode", "label": "曝光模式 ExposureMode", "placeholder": "0", "description": "写入曝光模式编号。"},
+    {"key": "metering_mode", "label": "测光 MeteringMode", "placeholder": "5", "description": "写入测光模式。"},
+    {"key": "white_balance", "label": "白平衡 WhiteBalance", "placeholder": "0", "description": "写入白平衡模式。"},
+    {"key": "flash", "label": "闪光 Flash", "placeholder": "16", "description": "写入闪光灯状态。"},
+    {"key": "scene_capture_type", "label": "场景 SceneCaptureType", "placeholder": "0", "description": "写入拍摄场景类型。"},
+    {"key": "digital_zoom_ratio", "label": "数码变焦 DigitalZoomRatio", "placeholder": "1.0", "description": "写入数码变焦倍率。"},
+    {"key": "sensing_method", "label": "传感器 SensingMethod", "placeholder": "2", "description": "写入传感器类型。"},
+    {"key": "gps_altitude", "label": "GPS 海拔", "placeholder": "35.5", "description": "写入海拔，单位米。"},
+    {"key": "gps_img_direction", "label": "GPS 拍摄朝向", "placeholder": "0-359.99", "description": "写入镜头朝向角度。"},
+    {"key": "gps_speed", "label": "GPS 速度", "placeholder": "0.0", "description": "写入移动速度，单位 km/h。"},
+]
+
+MOBILE_ADVANCED_METADATA_KEYS = [
+    "software",
+    "host_computer",
+    "artist",
+    "copyright",
+    "image_description",
+    "lens_make",
+    "lens_model",
+    "exposure_time",
+    "f_number",
+    "focal_length",
+    "iso",
+    "gps_altitude",
+    "gps_img_direction",
+    "gps_speed",
+]
+
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
@@ -293,6 +346,8 @@ class ProcessOptions:
     tweak_phash: bool      = True
     randomize_metadata: bool = True
     randomize_timestamp: bool = True
+    random_extra_metadata: bool = True
+    metadata_overrides: dict[str, str] = field(default_factory=dict)
     strip_exif: bool       = False
     jpeg_quality: int      = 95
     output_format: str     = "JPEG"   # JPEG | PNG | WEBP
@@ -368,8 +423,93 @@ def _encode_text(value: object) -> bytes:
 
 
 def _set_tag(ifd: dict, tag: object, value: object) -> None:
-    if tag is not None:
+    if tag is not None and value is not None:
         ifd[tag] = value
+
+
+def _clean_overrides(values: Optional[dict[str, str]]) -> dict[str, str]:
+    if not values:
+        return {}
+    return {
+        str(key): str(value).strip()
+        for key, value in values.items()
+        if value is not None and str(value).strip()
+    }
+
+
+def _parse_int(value: object) -> Optional[int]:
+    try:
+        return int(float(str(value).strip()))
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_float(value: object) -> Optional[float]:
+    try:
+        text = str(value).strip().lower()
+        if text.startswith("f/"):
+            text = text[2:]
+        return float(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_rational(value: object, scale: int = 100) -> Optional[tuple[int, int]]:
+    text = str(value).strip().lower().replace("f/", "")
+    try:
+        if "/" in text:
+            left, right = text.split("/", 1)
+            numerator = float(left.strip())
+            denominator = int(float(right.strip()))
+            if denominator <= 0:
+                return None
+            if numerator.is_integer():
+                return (int(numerator), denominator)
+            multiplier = 1000
+            return (int(round(numerator * multiplier)), denominator * multiplier)
+        number = float(text)
+    except (TypeError, ValueError):
+        return None
+    return _to_rational(number, scale)
+
+
+def _parse_datetime_value(value: object) -> Optional[datetime]:
+    text = str(value).strip()
+    if not text:
+        return None
+    for fmt in ("%Y:%m:%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M:%S"):
+        try:
+            return datetime.strptime(text, fmt).astimezone()
+        except ValueError:
+            pass
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            return parsed.astimezone()
+        return parsed
+    except ValueError:
+        return None
+
+
+def _normalize_exif_time(value: object) -> Optional[str]:
+    parsed = _parse_datetime_value(value)
+    if parsed:
+        return _format_exif_time(parsed)
+    text = str(value).strip()
+    if len(text) >= 19:
+        return text[:19].replace("-", ":").replace("/", ":")
+    return None
+
+
+def _normalize_offset(value: object) -> Optional[str]:
+    text = str(value).strip()
+    if not text:
+        return None
+    if len(text) == 5 and (text[0] in "+-") and text[1:].isdigit():
+        return f"{text[:3]}:{text[3:]}"
+    if len(text) == 6 and text[0] in "+-" and text[3] == ":":
+        return text
+    return None
 
 
 def _device_profile(device_name: str) -> dict[str, object]:
@@ -386,6 +526,76 @@ def _device_profile(device_name: str) -> dict[str, object]:
     return profile
 
 
+def generate_random_metadata_overrides(
+    device_name: str = "Apple iPhone 15 Pro",
+    capture_time: Optional[datetime] = None,
+    include_time: bool = True,
+) -> dict[str, str]:
+    profile = _device_profile(device_name)
+    make = str(profile["make"])
+    model = str(profile["model"])
+    focal = float(profile["focal_length"])
+    f_number = float(profile["f_number"])
+    capture_time = capture_time or _random_capture_time()
+    exposure_den = random.choice([30, 40, 50, 60, 80, 100, 120, 125, 160, 200, 250])
+    iso_base = int(profile["iso"])
+    iso = random.choice([max(25, iso_base - 20), iso_base, iso_base + 20, iso_base + 40])
+    values = {
+        "software": random.choice(["Image Metadata Modifier", "Photos", "Camera", "Lightroom", "Snapseed"]),
+        "host_computer": random.choice([model, f"{make} mobile", "MacBook", "Windows Photo Editor"]),
+        "artist": f"user-{secrets.token_hex(3)}",
+        "copyright": f"Copyright {capture_time.year} {secrets.token_hex(3)}",
+        "image_description": f"processed-{secrets.token_hex(4)}",
+        "make": make,
+        "model": model,
+        "lens_make": str(profile["lens_make"]),
+        "lens_model": str(profile["lens_model"]),
+        "lens_serial": secrets.token_hex(8),
+        "body_serial": secrets.token_hex(8),
+        "image_unique_id": secrets.token_hex(16),
+        "subsec_time": f"{random.randint(0, 999):03d}",
+        "exposure_time": f"1/{exposure_den}",
+        "f_number": f"{max(1.0, f_number + random.uniform(-0.05, 0.05)):.2f}",
+        "focal_length": f"{max(1.0, focal + random.uniform(-0.08, 0.08)):.2f}",
+        "focal_length_35mm": str(max(1, int(round(focal * 4 + random.choice([-1, 0, 1]))))),
+        "iso": str(iso),
+        "exposure_program": random.choice(["2", "3"]),
+        "exposure_mode": random.choice(["0", "1"]),
+        "metering_mode": random.choice(["3", "5"]),
+        "white_balance": random.choice(["0", "1"]),
+        "flash": random.choice(["0", "16", "24"]),
+        "scene_capture_type": random.choice(["0", "1", "2", "3"]),
+        "digital_zoom_ratio": random.choice(["1.0", "1.1", "1.2"]),
+        "sensing_method": random.choice(["2", "3"]),
+        "gps_altitude": f"{random.uniform(5, 120):.1f}",
+        "gps_img_direction": f"{random.uniform(0, 359.99):.2f}",
+        "gps_speed": f"{random.uniform(0, 3):.1f}",
+    }
+    if include_time:
+        exif_time = _format_exif_time(capture_time)
+        offset = _format_exif_offset(capture_time)
+        values.update(
+            {
+                "datetime": exif_time,
+                "datetime_original": exif_time,
+                "datetime_digitized": exif_time,
+                "offset_time": offset,
+            }
+        )
+    return values
+
+
+def _select_capture_time(opts: ProcessOptions) -> datetime:
+    overrides = _clean_overrides(opts.metadata_overrides)
+    for key in ("datetime_original", "datetime", "datetime_digitized"):
+        parsed = _parse_datetime_value(overrides.get(key))
+        if parsed:
+            return parsed.astimezone()
+    if opts.randomize_timestamp:
+        return _random_capture_time()
+    return datetime.now().astimezone()
+
+
 def _build_exif_bytes(opts: ProcessOptions, capture_time: Optional[datetime]) -> bytes:
     zeroth_ifd: dict = {}
     exif_ifd:   dict = {}
@@ -393,39 +603,111 @@ def _build_exif_bytes(opts: ProcessOptions, capture_time: Optional[datetime]) ->
 
     if not opts.strip_exif:
         profile = _device_profile(opts.device_name)
+        effective = (
+            generate_random_metadata_overrides(
+                opts.device_name,
+                capture_time,
+                include_time=opts.randomize_timestamp,
+            )
+            if opts.random_extra_metadata
+            else {}
+        )
+        effective.update(_clean_overrides(opts.metadata_overrides))
+
         make = profile["make"]
         model = profile["model"]
         lens_make = profile["lens_make"]
         lens_model = profile["lens_model"]
 
-        zeroth_ifd[piexif.ImageIFD.Make] = _encode_text(make)
-        zeroth_ifd[piexif.ImageIFD.Model] = _encode_text(model)
-        zeroth_ifd[piexif.ImageIFD.Software] = b"Image Metadata Modifier"
+        zeroth_ifd[piexif.ImageIFD.Make] = _encode_text(effective.get("make", make))
+        zeroth_ifd[piexif.ImageIFD.Model] = _encode_text(effective.get("model", model))
+        zeroth_ifd[piexif.ImageIFD.Software] = _encode_text(
+            effective.get("software", "Image Metadata Modifier")
+        )
+        _set_tag(
+            zeroth_ifd,
+            getattr(piexif.ImageIFD, "HostComputer", 316),
+            _encode_text(effective["host_computer"]) if "host_computer" in effective else None,
+        )
+        if "artist" in effective:
+            zeroth_ifd[piexif.ImageIFD.Artist] = _encode_text(effective["artist"])
+        if "copyright" in effective:
+            zeroth_ifd[piexif.ImageIFD.Copyright] = _encode_text(effective["copyright"])
+        if "image_description" in effective:
+            zeroth_ifd[piexif.ImageIFD.ImageDescription] = _encode_text(
+                effective["image_description"]
+            )
 
         if capture_time:
             exif_time = _format_exif_time(capture_time)
             offset = _format_exif_offset(capture_time)
-            zeroth_ifd[piexif.ImageIFD.DateTime] = exif_time.encode()
-            exif_ifd[piexif.ExifIFD.DateTimeOriginal] = exif_time.encode()
-            exif_ifd[piexif.ExifIFD.DateTimeDigitized] = exif_time.encode()
-            _set_tag(exif_ifd, getattr(piexif.ExifIFD, "OffsetTime", 36880), offset.encode())
-            _set_tag(exif_ifd, getattr(piexif.ExifIFD, "OffsetTimeOriginal", 36881), offset.encode())
-            _set_tag(exif_ifd, getattr(piexif.ExifIFD, "OffsetTimeDigitized", 36882), offset.encode())
+            zeroth_ifd[piexif.ImageIFD.DateTime] = effective.get("datetime", exif_time).encode()
+            exif_ifd[piexif.ExifIFD.DateTimeOriginal] = effective.get(
+                "datetime_original", exif_time
+            ).encode()
+            exif_ifd[piexif.ExifIFD.DateTimeDigitized] = effective.get(
+                "datetime_digitized", exif_time
+            ).encode()
+            normalized_offset = _normalize_offset(effective.get("offset_time", offset)) or offset
+            _set_tag(exif_ifd, getattr(piexif.ExifIFD, "OffsetTime", 36880), normalized_offset.encode())
+            _set_tag(exif_ifd, getattr(piexif.ExifIFD, "OffsetTimeOriginal", 36881), normalized_offset.encode())
+            _set_tag(exif_ifd, getattr(piexif.ExifIFD, "OffsetTimeDigitized", 36882), normalized_offset.encode())
 
-        exif_ifd[piexif.ExifIFD.LensMake] = _encode_text(lens_make)
-        exif_ifd[piexif.ExifIFD.LensModel] = _encode_text(lens_model)
+        for key, tag in (
+            ("datetime", piexif.ImageIFD.DateTime),
+        ):
+            value = _normalize_exif_time(effective.get(key))
+            if value:
+                zeroth_ifd[tag] = value.encode()
+        for key, tag in (
+            ("datetime_original", piexif.ExifIFD.DateTimeOriginal),
+            ("datetime_digitized", piexif.ExifIFD.DateTimeDigitized),
+        ):
+            value = _normalize_exif_time(effective.get(key))
+            if value:
+                exif_ifd[tag] = value.encode()
+
+        exif_ifd[piexif.ExifIFD.LensMake] = _encode_text(effective.get("lens_make", lens_make))
+        exif_ifd[piexif.ExifIFD.LensModel] = _encode_text(effective.get("lens_model", lens_model))
         exif_ifd[piexif.ExifIFD.ExifVersion] = b"0232"
         exif_ifd[piexif.ExifIFD.FlashpixVersion] = b"0100"
         exif_ifd[piexif.ExifIFD.ColorSpace] = 1
-        exif_ifd[piexif.ExifIFD.FNumber] = _to_rational(float(profile["f_number"]))
-        exif_ifd[piexif.ExifIFD.FocalLength] = _to_rational(float(profile["focal_length"]))
+        exif_ifd[piexif.ExifIFD.FNumber] = _parse_rational(
+            effective.get("f_number", profile["f_number"])
+        ) or _to_rational(float(profile["f_number"]))
+        exif_ifd[piexif.ExifIFD.FocalLength] = _parse_rational(
+            effective.get("focal_length", profile["focal_length"])
+        ) or _to_rational(float(profile["focal_length"]))
         exif_ifd[piexif.ExifIFD.FocalLengthIn35mmFilm] = int(
-            round(float(profile["focal_length"]) * 4)
+            _parse_int(effective.get("focal_length_35mm"))
+            or round(float(profile["focal_length"]) * 4)
         )
         exposure = profile["exposure"]
-        if isinstance(exposure, tuple) and len(exposure) == 2:
+        exposure_override = _parse_rational(effective.get("exposure_time"), scale=100000)
+        if exposure_override:
+            exif_ifd[piexif.ExifIFD.ExposureTime] = exposure_override
+        elif isinstance(exposure, tuple) and len(exposure) == 2:
             exif_ifd[piexif.ExifIFD.ExposureTime] = exposure
-        exif_ifd[piexif.ExifIFD.ISOSpeedRatings] = int(profile["iso"])
+        iso = _parse_int(effective.get("iso")) or int(profile["iso"])
+        exif_ifd[piexif.ExifIFD.ISOSpeedRatings] = iso
+        _set_tag(exif_ifd, getattr(piexif.ExifIFD, "PhotographicSensitivity", None), iso)
+
+        for key, tag_name in (
+            ("exposure_program", "ExposureProgram"),
+            ("exposure_mode", "ExposureMode"),
+            ("metering_mode", "MeteringMode"),
+            ("white_balance", "WhiteBalance"),
+            ("flash", "Flash"),
+            ("scene_capture_type", "SceneCaptureType"),
+            ("sensing_method", "SensingMethod"),
+        ):
+            value = _parse_int(effective.get(key))
+            if value is not None:
+                _set_tag(exif_ifd, getattr(piexif.ExifIFD, tag_name, None), value)
+
+        zoom = _parse_rational(effective.get("digital_zoom_ratio"))
+        if zoom:
+            _set_tag(exif_ifd, getattr(piexif.ExifIFD, "DigitalZoomRatio", None), zoom)
 
         # GPS — custom coords take priority over preset
         lat = lon = None
@@ -446,21 +728,33 @@ def _build_exif_bytes(opts: ProcessOptions, capture_time: Optional[datetime]) ->
                     (capture_time.minute, 1),
                     (capture_time.second, 1),
                 )
+            altitude = _parse_rational(effective.get("gps_altitude"))
+            if altitude:
+                gps_ifd[piexif.GPSIFD.GPSAltitudeRef] = 0
+                gps_ifd[piexif.GPSIFD.GPSAltitude] = altitude
+            direction = _parse_rational(effective.get("gps_img_direction"))
+            if direction:
+                gps_ifd[piexif.GPSIFD.GPSImgDirectionRef] = b"T"
+                gps_ifd[piexif.GPSIFD.GPSImgDirection] = direction
+            speed = _parse_rational(effective.get("gps_speed"))
+            if speed:
+                gps_ifd[piexif.GPSIFD.GPSSpeedRef] = b"K"
+                gps_ifd[piexif.GPSIFD.GPSSpeed] = speed
 
         # Hidden note + optional nonce
         payload = opts.hidden_note.strip()
-        unique_id = secrets.token_hex(16)
+        unique_id = effective.get("image_unique_id", secrets.token_hex(16))
         if opts.randomize_metadata:
             payload = f"{payload} nonce={secrets.token_hex(8)}".strip()
             _set_tag(
                 exif_ifd,
                 getattr(piexif.ExifIFD, "BodySerialNumber", 42033),
-                secrets.token_hex(8).encode(),
+                effective.get("body_serial", secrets.token_hex(8)).encode(),
             )
             _set_tag(
                 exif_ifd,
                 getattr(piexif.ExifIFD, "LensSerialNumber", 42037),
-                secrets.token_hex(8).encode(),
+                effective.get("lens_serial", secrets.token_hex(8)).encode(),
             )
             _set_tag(
                 exif_ifd,
@@ -470,18 +764,40 @@ def _build_exif_bytes(opts: ProcessOptions, capture_time: Optional[datetime]) ->
             _set_tag(
                 exif_ifd,
                 getattr(piexif.ExifIFD, "SubSecTime", 37520),
-                str(random.randint(0, 999)).encode(),
+                effective.get("subsec_time", str(random.randint(0, 999))).encode(),
             )
             _set_tag(
                 exif_ifd,
                 getattr(piexif.ExifIFD, "SubSecTimeOriginal", 37521),
-                str(random.randint(0, 999)).encode(),
+                effective.get("subsec_time", str(random.randint(0, 999))).encode(),
             )
             _set_tag(
                 exif_ifd,
                 getattr(piexif.ExifIFD, "SubSecTimeDigitized", 37522),
-                str(random.randint(0, 999)).encode(),
+                effective.get("subsec_time", str(random.randint(0, 999))).encode(),
             )
+        else:
+            _set_tag(
+                exif_ifd,
+                getattr(piexif.ExifIFD, "BodySerialNumber", 42033),
+                effective["body_serial"].encode() if "body_serial" in effective else None,
+            )
+            _set_tag(
+                exif_ifd,
+                getattr(piexif.ExifIFD, "LensSerialNumber", 42037),
+                effective["lens_serial"].encode() if "lens_serial" in effective else None,
+            )
+            _set_tag(
+                exif_ifd,
+                getattr(piexif.ExifIFD, "ImageUniqueID", 42016),
+                unique_id.encode() if "image_unique_id" in effective else None,
+            )
+            for tag_name in ("SubSecTime", "SubSecTimeOriginal", "SubSecTimeDigitized"):
+                _set_tag(
+                    exif_ifd,
+                    getattr(piexif.ExifIFD, tag_name, None),
+                    effective["subsec_time"].encode() if "subsec_time" in effective else None,
+                )
         if payload:
             exif_ifd[piexif.ExifIFD.UserComment] = (
                 b"ASCII\x00\x00\x00" + payload.encode("utf-8", "ignore")
@@ -609,7 +925,7 @@ def process_image(
         rgb = im.convert("RGB")
 
     _prog(0.25, "像素处理…")
-    capture_time = _random_capture_time() if opts.randomize_timestamp else datetime.now().astimezone()
+    capture_time = _select_capture_time(opts)
 
     _prog(0.50, "构建 EXIF 数据…")
     exif_bytes = _build_exif_bytes(opts, capture_time)
@@ -678,6 +994,8 @@ def batch_process(
             tweak_phash       = opts_template.tweak_phash,
             randomize_metadata= opts_template.randomize_metadata,
             randomize_timestamp= opts_template.randomize_timestamp,
+            random_extra_metadata= opts_template.random_extra_metadata,
+            metadata_overrides= dict(opts_template.metadata_overrides),
             strip_exif        = opts_template.strip_exif,
             jpeg_quality      = opts_template.jpeg_quality,
             output_format     = opts_template.output_format,

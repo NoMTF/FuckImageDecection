@@ -43,6 +43,7 @@ except ImportError:
     HAS_PLYER = False
 
 from core import (
+    MOBILE_ADVANCED_METADATA_KEYS,
     GPS_PRESETS,
     DEVICE_PRESETS,
     ProcessOptions,
@@ -174,6 +175,82 @@ KV = """
                         hint_text: "设备预设名称"
                         mode: "rectangle"
                         on_focus: if self.focus: app.show_device_picker()
+
+            # ── Advanced metadata ─────────────
+            MDCard:
+                padding: dp(12)
+                adaptive_height: True
+                elevation: 1
+                MDBoxLayout:
+                    orientation: "vertical"
+                    adaptive_height: True
+                    spacing: dp(8)
+                    MDLabel:
+                        text: "🧬  可编辑元数据"
+                        font_style: "Subtitle1"
+                    MDBoxLayout:
+                        adaptive_height: True
+                        MDLabel:
+                            text: "安全随机扩展字段"
+                        MDSwitch:
+                            id: extra_sw
+                            active: True
+                    MDTextField:
+                        id: software_field
+                        hint_text: "软件 Software"
+                        mode: "rectangle"
+                    MDTextField:
+                        id: host_computer_field
+                        hint_text: "主机 HostComputer"
+                        mode: "rectangle"
+                    MDTextField:
+                        id: artist_field
+                        hint_text: "作者 Artist"
+                        mode: "rectangle"
+                    MDTextField:
+                        id: copyright_field
+                        hint_text: "版权 Copyright"
+                        mode: "rectangle"
+                    MDTextField:
+                        id: image_description_field
+                        hint_text: "描述 ImageDescription"
+                        mode: "rectangle"
+                    MDTextField:
+                        id: lens_make_field
+                        hint_text: "镜头品牌 LensMake"
+                        mode: "rectangle"
+                    MDTextField:
+                        id: lens_model_field
+                        hint_text: "镜头型号 LensModel"
+                        mode: "rectangle"
+                    MDTextField:
+                        id: exposure_time_field
+                        hint_text: "快门 ExposureTime，例如 1/120"
+                        mode: "rectangle"
+                    MDTextField:
+                        id: f_number_field
+                        hint_text: "光圈 FNumber，例如 1.8"
+                        mode: "rectangle"
+                    MDTextField:
+                        id: focal_length_field
+                        hint_text: "焦距 FocalLength，例如 6.86"
+                        mode: "rectangle"
+                    MDTextField:
+                        id: iso_field
+                        hint_text: "ISO"
+                        mode: "rectangle"
+                    MDTextField:
+                        id: gps_altitude_field
+                        hint_text: "GPS 海拔，单位米"
+                        mode: "rectangle"
+                    MDTextField:
+                        id: gps_img_direction_field
+                        hint_text: "GPS 拍摄朝向 0-359"
+                        mode: "rectangle"
+                    MDTextField:
+                        id: gps_speed_field
+                        hint_text: "GPS 速度 km/h"
+                        mode: "rectangle"
 
             # ── Options ──────────────────────
             MDCard:
@@ -316,9 +393,9 @@ class ImagePrivacyApp(MDApp):
         dialog = MDDialog(
             title="关于 Image Privacy Tool",
             text=(
-                "版本: v2.1\n\n"
+                "版本: v2.2\n\n"
                 "轻量级图片隐私处理工具\n"
-                "修改文件哈希、EXIF 元数据、拍摄时间和可选感知哈希\n\n"
+                "修改文件哈希、EXIF 元数据、拍摄时间、镜头/曝光/GPS 扩展字段和可选感知哈希\n\n"
                 "MIT License © 2026"
             ),
             buttons=[MDFlatButton(text="关闭", on_release=lambda x: dialog.dismiss())],
@@ -424,6 +501,12 @@ class ImagePrivacyApp(MDApp):
         except ValueError:
             lat = lon = None
 
+        metadata_overrides = {}
+        for key in MOBILE_ADVANCED_METADATA_KEYS:
+            widget = ids.get(f"{key}_field")
+            if widget and widget.text.strip():
+                metadata_overrides[key] = widget.text.strip()
+
         opts = ProcessOptions(
             src               = src,
             dst               = dst,
@@ -435,6 +518,8 @@ class ImagePrivacyApp(MDApp):
             tweak_phash       = ids.tweak_sw.active,
             randomize_metadata= ids.rand_sw.active,
             randomize_timestamp= ids.time_sw.active,
+            random_extra_metadata= ids.extra_sw.active,
+            metadata_overrides= metadata_overrides,
             strip_exif        = ids.strip_sw.active,
             jpeg_quality      = int(ids.quality_sl.value),
             output_format     = "JPEG",
